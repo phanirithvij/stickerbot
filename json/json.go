@@ -12,14 +12,34 @@ type Data struct {
 
 // Pair ..
 type Pair struct {
-	FileID      string `json:"file_id"`
-	StickerName string `json:"sticker_name"`
+	FileID          string `json:"file_id"`
+	StickerName     string `json:"sticker_name"`
+	SampleStickerID string `json:"sample_sticker_id"`
 }
 
 // SaveToJSON ...
 func SaveToJSON(data *Data, dest string) error {
-	file, _ := jsonp.MarshalIndent(data, "", " ")
+	file, err := jsonp.MarshalIndent(data, "", " ")
+	if err != nil {
+		return err
+	}
 
-	_ = ioutil.WriteFile("test.json", file, 0644)
-	return nil
+	err = ioutil.WriteFile(dest, file, 0644)
+	return err
+}
+
+// LoadFromJSON ...
+func LoadFromJSON(src string) (*Data, error) {
+
+	d := new(Data)
+	data, err := ioutil.ReadFile(src)
+	if err != nil {
+		return d, err
+	}
+
+	err = jsonp.Unmarshal(data, &d)
+	if err != nil {
+		return d, err
+	}
+	return d, err
 }

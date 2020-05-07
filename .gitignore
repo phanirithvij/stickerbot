@@ -71,3 +71,4 @@ config.yml
 flutterapp/
 bodymovin-extension/
 lottie_to_flare/
+db.json

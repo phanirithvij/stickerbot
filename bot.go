@@ -13,12 +13,15 @@ import (
 
 	// https://github.com/golang/go/issues/35732#issuecomment-584319096
 	// https://stackoverflow.com/a/54275441/8608146
-	_ "github/phanirithvij/stickerbot/json"
+	"github/phanirithvij/stickerbot/json"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	config "github.com/phanirithvij/stickerbot/config"
 	"github.com/spf13/viper"
 )
+
+var dbpath string = "db.json"
+var jsonData *json.Data
 
 func main() {
 	// .config/config.go
@@ -49,7 +52,14 @@ func main() {
 
 	updates, err := bot.GetUpdatesChan(u)
 
-	saveToJSON(&Data{Data: []Pair{FileID: "DI", StickerName: "Stick"}})
+	// = here not :=
+	jsonData, err = json.LoadFromJSON(dbpath)
+	if err != nil {
+		// no db exists create one
+		log.Println("no db exists create db.json")
+		json.SaveToJSON(new(json.Data), dbpath)
+	}
+	log.Println(jsonData)
 
 	// On bot start ensure all cached files are zipped
 	cacheDir := "flutterapp/storage/"
@@ -117,19 +127,31 @@ func main() {
 
 			// https://github.com/go-telegram-bot-api/telegram-bot-api/issues/37#issuecomment-189173928
 			if update.InlineQuery != nil {
-				if update.InlineQuery.Query == "" {
-					continue
-				}
+				// if update.InlineQuery.Query == "" {
+				// 	continue
+				// }
 				log.Println(update.InlineQuery.Query)
 				var results []interface{}
 
-				q := tgbotapi.NewInlineQueryResultCachedSticker("de", "CAACAgIAAxkBAAIBbV6y8AkCexf-OWeBApIENbq07KETAAIlAAM7YCQUglfAqB1EIS0ZBA", "damn")
+				for i, item := range jsonData.Data {
+					if strings.Contains(strings.ToLower(item.StickerName), strings.ToLower(update.InlineQuery.Query)) {
+						// TODO I copy pasted this method from a PR which was not merged into master of go-telegram-bot-api
+						// https://github.com/go-telegram-bot-api/telegram-bot-api/pull/292
+						res := tgbotapi.NewInlineQueryResultCachedSticker("sticker"+strconv.Itoa(i), item.SampleStickerID, "damn")
+						results = append(results, res)
+					}
+				}
+				// log.Println(results...)
+
+				count := len(results)
+				// send 26 sticker pack results at max no matter the search
+				if count > 26 {
+					results = results[:26]
+				}
+
 				// q.Description = "test description"
 				// q.ThumbURL = "https://avatars3.githubusercontent.com/u/1369709?s=88&u=a4179f42dc91f7abc46691dcac25a028c6804cdd&v=4"
-				r := tgbotapi.NewInlineQueryResultArticle("d2", "test Title", "damn 2 son")
-				// r.Description = "test description"
-				results = append(results, q)
-				results = append(results, r)
+				// r := tgbotapi.NewInlineQueryResultArticle("d2", "test Title", "damn 2 son")
 				inlineConf := tgbotapi.InlineConfig{
 					InlineQueryID: update.InlineQuery.ID,
 					IsPersonal:    true,
@@ -151,10 +173,6 @@ func main() {
 			log.Println([]rune(update.Message.Sticker.Emoji))
 			sticker := tgbotapi.NewStickerShare(update.Message.Chat.ID, update.Message.Sticker.FileID)
 			if update.Message.Sticker.SetName != "" {
-				// msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Choose what to do")
-				// if _, err := bot.Send(msg); err != nil {
-				// 	log.Panic(err)
-				// }
 				sticker.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 					tgbotapi.NewInlineKeyboardRow(
 						tgbotapi.NewInlineKeyboardButtonURL("Open sticker set", "https://t.me/addstickers/"+update.Message.Sticker.SetName),
@@ -163,14 +181,9 @@ func main() {
 				)
 			}
 
-			// sticker := tgbotapi.NewStickerUpload(update.Message.Chat.ID, "flutterapp/storage/Upload/21303-pineapple.json")
 			if _, err := bot.Send(sticker); err != nil {
 				log.Panic(err)
 			}
-			// msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Sticker.Emoji)
-			// if _, err := bot.Send(msg); err != nil {
-			// 	log.Panic(err)
-			// }
 
 			continue
 		}
@@ -227,9 +240,6 @@ func handleText(text string, bot *tgbotapi.BotAPI, update *tgbotapi.Update, call
 				log.Panic(err)
 			}
 		}
-		// log.Println(data.Title)
-		// log.Println(data.IsAnimated)
-		// log.Println(data.Name)
 		// https://stackoverflow.com/a/47180974/8608146
 
 		// global storage cache
@@ -244,23 +254,38 @@ func handleText(text string, bot *tgbotapi.BotAPI, update *tgbotapi.Update, call
 		if _, err := checkExisting(filepath.Join(dirname, stickerSet), len(data.Stickers)); err != nil {
 			log.Println(err)
 		} else {
-			// log.Println(update)
-			// log.Println(update.Message)
-			// log.Println(update.Message.Chat)
-			// log.Println(update.Message.Chat.ID)
-			// msg := tgbotapi.NewMessage(chatID, "Already Cached.")
-			// _, err := bot.Send(msg)
-			// if err != nil {
-			// 	log.Panic(err)
-			// }
-			file := tgbotapi.NewDocumentUpload(chatID, filepath.Join(dirname, stickerSet, stickerSet+".zip"))
+			var file tgbotapi.DocumentConfig
+			foundCached := false
+			for _, item := range jsonData.Data {
+				if item.StickerName == stickerSet {
+					foundCached = true
+					file = tgbotapi.NewDocumentShare(chatID, item.FileID)
+					break
+				}
+			}
+			if !foundCached {
+				file = tgbotapi.NewDocumentUpload(chatID, filepath.Join(dirname, stickerSet, stickerSet+".zip"))
+			}
 			file.Caption = "Done"
-			log.Println(os.Getwd())
 			if uploaded, err := bot.Send(file); err != nil {
+				// TODO handle if the cached fileid expires
 				log.Panic(err)
 			} else {
-
-				log.Println("Done uploading", uploaded.Document.FileID)
+				if !foundCached {
+					log.Println("Done uploading", uploaded.Document.FileID)
+					log.Print(jsonData.Data)
+					log.Print(json.Pair{FileID: uploaded.Document.FileID, StickerName: stickerSet})
+					// save fileid, stickerSet to db
+					entry := json.Pair{
+						FileID:          uploaded.Document.FileID,
+						StickerName:     stickerSet,
+						SampleStickerID: data.Stickers[0].FileID,
+					}
+					jsonData.Data = append(jsonData.Data, entry)
+					json.SaveToJSON(jsonData, dbpath)
+				} else {
+					log.Println("Shared existing", uploaded.Document.FileID)
+				}
 			}
 			return
 		}
@@ -316,6 +341,8 @@ func handleText(text string, bot *tgbotapi.BotAPI, update *tgbotapi.Update, call
 		if sentmsg, err = bot.Send(msg); err != nil {
 			log.Panic(err)
 		}
+
+		// here we need to upload anyway
 		// upload zip file
 		file := tgbotapi.NewDocumentUpload(chatID, filepath.Join(dirname, stickerSet, stickerSet+".zip"))
 		file.Caption = "Done"
@@ -328,6 +355,14 @@ func handleText(text string, bot *tgbotapi.BotAPI, update *tgbotapi.Update, call
 			if _, err := bot.DeleteMessage(delconf); err != nil {
 				log.Panic(err)
 			}
+			entry := json.Pair{
+				FileID:          uploaded.Document.FileID,
+				StickerName:     stickerSet,
+				SampleStickerID: data.Stickers[0].FileID,
+			}
+
+			jsonData.Data = append(jsonData.Data, entry)
+			json.SaveToJSON(jsonData, dbpath)
 		}
 		return
 	}
