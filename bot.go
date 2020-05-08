@@ -13,9 +13,9 @@ import (
 
 	// https://github.com/golang/go/issues/35732#issuecomment-584319096
 	// https://stackoverflow.com/a/54275441/8608146
-	"github.com/phanirithvij/stickerbot/json"
+	json "github.com/phanirithvij/stickerbot/json"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	tgbotapi "github.com/phanirithvij/telegram-bot-api"
 	config "github.com/phanirithvij/stickerbot/config"
 	"github.com/spf13/viper"
 )
