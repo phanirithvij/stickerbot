@@ -13,7 +13,7 @@ import (
 
 	// https://github.com/golang/go/issues/35732#issuecomment-584319096
 	// https://stackoverflow.com/a/54275441/8608146
-	"github/phanirithvij/stickerbot/json"
+	"github.com/phanirithvij/stickerbot/json"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	config "github.com/phanirithvij/stickerbot/config"
