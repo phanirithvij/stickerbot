@@ -34,3 +34,8 @@ Run the bot by `go run .` or `go build && ./stickerbot`
 - [ ] Better inline search
 - [ ] Use redis or something as the db instead of a json file
 - [ ] Remove/Move that gif code
+
+## Screenshots
+
+![image](https://user-images.githubusercontent.com/29627898/81421172-a80bd800-916e-11ea-8cba-ab504fc9d606.png)
+
